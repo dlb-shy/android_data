@@ -1,0 +1,38 @@
+   public static final String sampleStr = "ABCDEFGHJKMNPQRSTWXYZ012345678ABCDEFGHJKMNPQRSTWXYZ012345678";
+
+
+    @Async("asyncExecutor")
+    public CompletableFuture<OrderDataSign> getSignCodeAndRandomStr(TreeMap<String, String> data, AtomicInteger allRetryTimes, String securityCode) {
+        while (allRetryTimes.get() > 0) {
+            LocalDateTime now = LocalDateTime.now();
+            Long timestamp = now.toInstant(ZoneOffset.of("+8")).toEpochMilli();
+            String randomStr = getRandomStr();
+
+            data.put("timestamp", String.valueOf(timestamp));
+            data.put("__S__", randomStr);
+
+            String signcode = SignUtil.generateSignCode(data);
+
+            if (signcode.startsWith(securityCode)) {
+                log.info("成功获取order data, signcode:" + signcode);
+                data.put("signcode", signcode);
+                OrderDataSign orderDataSign = new OrderDataSign(signcode, randomStr, now, data);
+                return CompletableFuture.completedFuture(orderDataSign);
+            }
+        }
+
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return CompletableFuture.completedFuture(null);
+    }
+
+    private String getRandomStr() {
+        StringBuffer randomstr = new StringBuffer();
+        for (int i = 0; i < 32; i++) {
+            randomstr.append(sampleStr.charAt(RandomUtil.randomInt(0, sampleStr.length() - 1)));
+        }
+        return randomstr.toString();
+    }
